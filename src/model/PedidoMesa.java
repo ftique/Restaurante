@@ -4,10 +4,9 @@
  */
 package model;
 
-import java.util.Comparator;
 import java.util.List;
 
-public class PedidoMesa implements Comparable<PedidoMesa> {
+public class PedidoMesa {
     private int mesa;
     private String mesero;
     private List<ProductoMenu> productos;
@@ -17,35 +16,21 @@ public class PedidoMesa implements Comparable<PedidoMesa> {
         this.mesero = mesero;
         this.productos = productos;
     }
-
-    public int getMesa() { return mesa; }
-    public String getMesero() { return mesero; }
-    public List<ProductoMenu> getProductos() { return productos; }
     
-    @Override
-    public int compareTo(PedidoMesa otro) {
-        int maxTiempoEste = this.productos.stream()
-                .mapToInt(ProductoMenu::getTiempoPreparacion)
-                .max()
-                .orElse(0);
-
-        int maxTiempoOtro = otro.productos.stream()
-                .mapToInt(ProductoMenu::getTiempoPreparacion)
-                .max()
-                .orElse(0);
-
-        return Integer.compare(maxTiempoEste, maxTiempoOtro); // Mayor tiempo → mayor prioridad
+    public int getMesa() {
+        return mesa;
     }
     
+    public String getMesero() {
+        return mesero;
+    }
+    
+    public List<ProductoMenu> getProductos() {
+        return productos;
+    }
+
     @Override
     public String toString() {
-        return "Mesa " + mesa + " | Mesero: " + mesero + " | Productos: " +
-                productos.stream().map(ProductoMenu::getNombre).toList();
+        return "Mesa " + mesa + " | Mesero: " + mesero + " | Productos: " + productos.stream().map(ProductoMenu::getNombre).toList();
     }
-    public ProductoMenu productoMasDemorado() {
-        return productos.stream()
-                .max(Comparator.comparingInt(ProductoMenu::getTiempoPreparacion))
-                .orElse(null);
-    }
-
 }

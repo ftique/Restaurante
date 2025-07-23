@@ -5,90 +5,107 @@
 package controller;
 
 
-import model.*;
+import model.PedidoMesa;
+import model.ProductoMenu;
+import model.Persistencia;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.PriorityQueue;
+import java.util.*;
 
 public class ControladorPedidos {
 
-    private ArrayList<PedidoMesa> listaPedidos; // Estructura lineal
-    private PriorityQueue<PedidoMesa> colaCocina; // Estructura no lineal
-    private HashMap<String, ProductoMenu> inventario; // Clave = nombre del producto
+    private final PriorityQueue<PedidoMesa> colaPrioridad;
+    private final List<PedidoMesa> historialPedidos;
+    private final Map<String, ProductoMenu> menu;
 
-    public ControladorPedidos() {
-        listaPedidos = new ArrayList<>();
-        colaCocina = new PriorityQueue<>(); // requiere que Pedido implemente Comparable
-        inventario = new HashMap<>();
+    public ControladorPedidos(Map<String, ProductoMenu> menu) {
+        this.menu = menu;
+        this.historialPedidos = new ArrayList<>();
+
+        this.colaPrioridad = new PriorityQueue<>(new Comparator<PedidoMesa>() {
+            @Override
+            public int compare(PedidoMesa p1, PedidoMesa p2) {
+                int max1 = getMaxTiempoPreparacion(p1);
+                int max2 = getMaxTiempoPreparacion(p2);
+                return Integer.compare(max2, max1); // mayor tiempo = mayor prioridad
+            }
+        });
+        
+        List<PedidoMesa> pedidosGuardados = Persistencia.cargarPedidos(menu);
+        if (pedidosGuardados != null) {
+            historialPedidos.addAll(pedidosGuardados);
+            colaPrioridad.addAll(pedidosGuardados);
+        }
     }
 
-    // Añadir un producto al inventario
-    public void agregarProductoInventario(ProductoMenu producto) {
-        inventario.put(producto.getNombre(), producto);
-    }
-    
-    // Devuelve todo el menú
-    public ArrayList<ProductoMenu> obtenerMenu() {
-        return new ArrayList<>(inventario.values());
-    }
-
-    // Buscar un producto por nombre
-    public ProductoMenu buscarProducto(String nombre) {
-        return inventario.get(nombre);
-    }
-    
-    // Crear y registrar un pedido
-    public boolean registrarPedido(PedidoMesa pedido) {
-        // Validar inventario
-        for (ProductoMenu p : pedido.getProductos()) {
-            ProductoMenu stock = inventario.get(p.getNombre());
-            if (stock == null || stock.getInventario() < 1) {
-                System.out.println("Producto sin stock: " + p.getNombre());
-                return false;
+    public void agregarPedido(PedidoMesa pedido) throws Exception {
+        for (ProductoMenu producto : pedido.getProductos()) {
+            ProductoMenu original = menu.get(producto.getNombre());
+            if (original == null) {
+                throw new Exception("El producto '" + producto.getNombre() + "' no existe en el menú.");
+            }
+            if (original.getInventario() <= 0) {
+                throw new Exception("No hay stock de " + producto.getNombre());
             }
         }
-
-        // Descontar inventario
-        for (ProductoMenu p : pedido.getProductos()) {
-            ProductoMenu stock = inventario.get(p.getNombre());
-            stock.setInventario(stock.getInventario() - 1);
-        }
-
-        listaPedidos.add(pedido);
-        colaCocina.offer(pedido);
-        return true;
+        
+        descontarStock(pedido);
+        colaPrioridad.add(pedido);
+        historialPedidos.add(pedido);
+        Persistencia.guardarPedidos(historialPedidos);
+        Persistencia.guardarMenu(menu);
     }
 
-    // Consultar cuántos platos de cada tipo están pendientes
-    public HashMap<String, Integer> contarPlatosPendientes() {
-        HashMap<String, Integer> conteo = new HashMap<>();
-        for (PedidoMesa pedido : colaCocina) {
-            for (ProductoMenu p : pedido.getProductos()) {
-                conteo.put(p.getNombre(), conteo.getOrDefault(p.getNombre(), 0) + 1);
+    private void descontarStock(PedidoMesa pedido) {
+        for (ProductoMenu producto : pedido.getProductos()) {
+            String nombre = producto.getNombre();
+            ProductoMenu original = menu.get(nombre);
+            if (original != null) {
+                original.reducirInventario();
             }
         }
-        return conteo;
     }
 
-    // Obtener siguiente pedido para cocina
-    public PedidoMesa siguientePedido() {
-        return colaCocina.poll(); // Extrae el más prioritario
+    public PedidoMesa atenderPedido() {
+        PedidoMesa siguiente = colaPrioridad.poll();
+        if (siguiente != null) {
+            System.out.println("Atendiendo pedido: " + siguiente);
+        }
+        return siguiente;
     }
 
-    public ArrayList<PedidoMesa> getHistorialPedidos() {
-        return listaPedidos;
+    public List<PedidoMesa> getHistorialPedidos() {
+        return historialPedidos;
+    }
+
+    public List<PedidoMesa> getColaPedidos() {
+        return new ArrayList<>(colaPrioridad);
     }
     
-    // Devuelve una copia de la cola de pedidos para lectura
-    public PriorityQueue<PedidoMesa> obtenerPedidosEnCocina() {
-        return new PriorityQueue<>(colaCocina); // devuelve una copia
+    public Map<String, ProductoMenu> getMenu() {
+        return menu;
     }
-
-
     
-    public HashMap<String, ProductoMenu> getInventario() {
-        return inventario;
+    public void mostrarPedidosOrdenados() {
+    System.out.println("\nPedidos en cola de prioridad (ordenados por tiempo máximo de preparación):");
+
+    List<PedidoMesa> copiaOrdenada = new ArrayList<>(colaPrioridad);
+        copiaOrdenada.sort(Comparator.comparingInt(this::getMaxTiempoPreparacion).reversed());
+    
+        for (PedidoMesa pedido : copiaOrdenada) {
+            System.out.println("Mesa " + pedido.getMesa() +
+                " | Mesero: " + pedido.getMesero() +
+                " | Productos: " + pedido.getProductos() +
+                " | Tiempo máx: " + getMaxTiempoPreparacion(pedido));
+        }
+    }
+    
+    public int getMaxTiempoPreparacion(PedidoMesa pedido) {
+        int max = 0;
+        for (ProductoMenu p : pedido.getProductos()) {
+            if (p.getTiempoPreparacion() > max) {
+                max = p.getTiempoPreparacion();
+            }
+        }
+        return max;
     }
 }
-

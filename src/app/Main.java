@@ -1,27 +1,31 @@
 package app;
 
-import controller.*;
+import controller.ControladorPedidos;
+import model.Persistencia;
+import model.ProductoMenu;
 import view.*;
-import model.*;
 
+import javax.swing.*;
+import java.util.Map;
 
 public class Main {
     public static void main(String[] args) {
-        // Crear el controlador (maneja pedidos y la cola de prioridad)
-        ControladorPedidos controlador = new ControladorPedidos();
-        
-        controlador.agregarProductoInventario(new ProductoMenu("Hamburguesa", 20, 15));
-        controlador.agregarProductoInventario(new ProductoMenu("Pizza", 30, 20));
-        controlador.agregarProductoInventario(new ProductoMenu("Ensalada", 15, 10));
-        controlador.agregarProductoInventario(new ProductoMenu("Sopa", 10, 12));
-        controlador.agregarProductoInventario(new ProductoMenu("Postre", 25, 8));
-        
-        // Crear las dos ventanas y pasar el mismo controlador a ambas
-        VentanaMesero ventanaMesero = new VentanaMesero(controlador);
-        VentanaCocina ventanaCocina = new VentanaCocina(controlador);
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
 
-        // Mostrar ambas ventanas
-        ventanaMesero.setVisible(true);
-        ventanaCocina.setVisible(true);
+        Map<String, ProductoMenu> menu = Persistencia.cargarMenu();
+        if (menu.isEmpty()) {
+            menu.put("Pizza",    new ProductoMenu("Pizza",    15, 5));
+            menu.put("Ensalada", new ProductoMenu("Ensalada",  5, 4));
+            menu.put("Limonada", new ProductoMenu("Limonada",  2, 6));
+        }
+
+        ControladorPedidos controlador = new ControladorPedidos(menu);
+
+        SwingUtilities.invokeLater(() -> {
+            new VentanaMesero(controlador).setVisible(true);
+            new VentanaCocina(controlador).setVisible(true);
+        });
     }
 }

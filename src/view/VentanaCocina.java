@@ -4,12 +4,10 @@ import controller.ControladorPedidos;
 import model.PedidoMesa;
 import model.ProductoMenu;
 
-import javax.swing.Timer;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.List;
-import java.util.PriorityQueue;
 
 public class VentanaCocina extends JFrame {
     private JTextArea areaPedidos;
@@ -21,67 +19,46 @@ public class VentanaCocina extends JFrame {
         setTitle("Panel de Cocina");
         setSize(500, 400);
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
         iniciarComponentes();
-        cargarPedidos();
-        Timer timer = new Timer(2000, e -> cargarPedidos());
-        timer.start();
+        refrescar();
+        new Timer(2000, evt -> refrescar()).start();
     }
 
     private void iniciarComponentes() {
         areaPedidos = new JTextArea();
         areaPedidos.setEditable(false);
-        JScrollPane scroll = new JScrollPane(areaPedidos);
-
         botonDespachar = new JButton("Despachar Siguiente Pedido");
-        botonDespachar.addActionListener(this::despacharPedido);
+        botonDespachar.addActionListener(this::despachar);
 
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(scroll, BorderLayout.CENTER);
-        panel.add(botonDespachar, BorderLayout.SOUTH);
-
-        add(panel);
+        add(new JScrollPane(areaPedidos), BorderLayout.CENTER);
+        add(botonDespachar, BorderLayout.SOUTH);
     }
 
-    private void cargarPedidos() {
-        PriorityQueue<PedidoMesa> cola = controlador.obtenerPedidosEnCocina();
+    private void refrescar() {
+        List<PedidoMesa> cola = controlador.getColaPedidos();
         StringBuilder sb = new StringBuilder();
-
-        for (PedidoMesa pedido : cola) {
-            sb.append("Mesa #").append(pedido.getMesa())
-              .append(" | Mesero: ").append(pedido.getMesero())
+        for (PedidoMesa p : cola) {
+            sb.append("Mesa ").append(p.getMesa())
+              .append(" | Mesero: ").append(p.getMesero())
               .append(" | Productos: ");
-
-            List<ProductoMenu> productos = pedido.getProductos();
-            for (ProductoMenu p : productos) {
-                sb.append(p.getNombre()).append(" (").append(p.getTiempoPreparacion()).append(" min), ");
+            for (ProductoMenu pm : p.getProductos()) {
+                sb.append(pm.getNombre())
+                  .append(" (").append(pm.getTiempoPreparacion()).append("m), ");
             }
-
-            ProductoMenu max = pedido.productoMasDemorado();
-            if (max != null) {
-                sb.append(" | Más demorado: ").append(max.getNombre()).append(" - ").append(max.getTiempoPreparacion()).append(" min");
-            }
-
             sb.append("\n\n");
         }
-
         areaPedidos.setText(sb.toString());
     }
 
-    private void despacharPedido(ActionEvent e) {
-        PedidoMesa siguiente = controlador.siguientePedido();
+    private void despachar(ActionEvent e) {
+        PedidoMesa siguiente = controlador.atenderPedido();
         if (siguiente == null) {
-            JOptionPane.showMessageDialog(this, "No hay pedidos pendientes.");
-            return;
+            JOptionPane.showMessageDialog(this, "No hay más pedidos.");
+        } else {
+            JOptionPane.showMessageDialog(this,
+                "✅ Pedido Mesa " + siguiente.getMesa() + " despachado.");
+            refrescar();
         }
-
-        // Disminuir inventario de los productos servidos
-        for (ProductoMenu p : siguiente.getProductos()) {
-            p.reducirInventario();
-        }
-
-        JOptionPane.showMessageDialog(this, "Pedido de la mesa #" + siguiente.getMesa() + " despachado.");
-        cargarPedidos();
     }
 }
