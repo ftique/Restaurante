@@ -1,14 +1,15 @@
 package view;
 
 import controller.ControladorPedidos;
-import model.ProductoMenu;
 import model.PedidoMesa;
+import model.ProductoMenu;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class VentanaMesero extends JFrame {
     private JTextField campoMesa;
@@ -24,70 +25,68 @@ public class VentanaMesero extends JFrame {
         setTitle("Registro de Pedido - Mesero");
         setSize(400, 400);
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
         iniciarComponentes();
     }
 
     private void iniciarComponentes() {
-        campoMesa = new JTextField(5);
+        campoMesa   = new JTextField(5);
         campoMesero = new JTextField(15);
         modeloLista = new DefaultListModel<>();
 
-        // Agregamos productos desde el menú
-        for (ProductoMenu producto : controlador.obtenerMenu()) {
-            modeloLista.addElement(producto.getNombre());
+        Map<String, ProductoMenu> menu = controlador.getMenu();
+        for (String nombre : menu.keySet()) {
+            modeloLista.addElement(nombre);
         }
 
         listaProductos = new JList<>(modeloLista);
         listaProductos.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        botonEnviar = new JButton("Enviar Pedido");
 
+        botonEnviar = new JButton("Enviar Pedido");
         botonEnviar.addActionListener(this::registrarPedido);
 
-        JPanel panel = new JPanel(new GridLayout(6, 1));
-        panel.add(new JLabel("Mesa:"));
-        panel.add(campoMesa);
-        panel.add(new JLabel("Mesero:"));
-        panel.add(campoMesero);
+        JPanel panel = new JPanel(new GridLayout(0, 1, 5, 5));
+        panel.add(new JLabel("Mesa:"));    panel.add(campoMesa);
+        panel.add(new JLabel("Mesero:"));  panel.add(campoMesero);
         panel.add(new JLabel("Productos:"));
         panel.add(new JScrollPane(listaProductos));
         panel.add(botonEnviar);
 
-        add(panel);
+        add(panel, BorderLayout.CENTER);
     }
 
     private void registrarPedido(ActionEvent e) {
         try {
-            int mesa = Integer.parseInt(campoMesa.getText());
-            String mesero = campoMesero.getText();
-            List<String> seleccionados = listaProductos.getSelectedValuesList();
+            int mesa = Integer.parseInt(campoMesa.getText().trim());
+            String mesero = campoMesero.getText().trim();
+            List<String> seleccion = listaProductos.getSelectedValuesList();
 
-            if (mesero.isBlank() || seleccionados.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Debe ingresar el nombre del mesero y seleccionar al menos un producto.");
+            if (mesero.isEmpty() || seleccion.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Ingresá mesero y al menos un producto.");
                 return;
             }
 
-            List<ProductoMenu> productosSeleccionados = new ArrayList<>();
-            for (String nombre : seleccionados) {
-                ProductoMenu p = controlador.buscarProducto(nombre);
-                if (p != null && p.getInventario() > 0) {
-                    productosSeleccionados.add(p);
-                } else {
-                    JOptionPane.showMessageDialog(this, "El producto '" + nombre + "' no tiene inventario suficiente.");
+            List<ProductoMenu> productos = new ArrayList<>();
+            for (String nom : seleccion) {
+                ProductoMenu p = controlador.getMenu().get(nom);
+                if (p == null || p.getInventario() <= 0) {
+                    JOptionPane.showMessageDialog(this, "Sin stock de: " + nom);
                     return;
                 }
+                productos.add(p);
             }
-            
-            PedidoMesa pedido = new PedidoMesa(mesa, mesero, productosSeleccionados);
-            controlador.registrarPedido(pedido);
-            JOptionPane.showMessageDialog(this, "Pedido registrado correctamente.");
+
+            PedidoMesa pedido = new PedidoMesa(mesa, mesero, productos);
+            controlador.agregarPedido(pedido);
+            JOptionPane.showMessageDialog(this, "✅ Pedido registrado.");
             campoMesa.setText("");
             campoMesero.setText("");
             listaProductos.clearSelection();
 
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "El número de mesa debe ser un valor numérico.");
+            JOptionPane.showMessageDialog(this, "El número de mesa debe ser entero.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
     }
 }

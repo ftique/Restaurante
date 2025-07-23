@@ -18,12 +18,7 @@ public class ProductoMenu {
     public String getNombre() { return nombre; }
     public int getInventario() { return inventario; }
     public int getTiempoPreparacion() { return tiempoPreparacion; }
-    
 
-    public void setInventario(int cantidadDisponible) {
-        this.inventario = cantidadDisponible;
-    }
-    
     public void reducirInventario() {
         if (inventario > 0) inventario--;
     }
@@ -33,4 +28,3 @@ public class ProductoMenu {
         return nombre + " (Prep: " + tiempoPreparacion + " min, Stock: " + inventario + ")";
     }
 }
-
